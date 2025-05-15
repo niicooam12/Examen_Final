@@ -13,10 +13,14 @@ class UIController:
         self.chatbot_service = ChatbotService()
 
     def vote_fn(self, poll_id, options, username, password):
-        # Login temporal para la UI
+        if not poll_id or not options:
+            return "Error: Debes seleccionar una encuesta y al menos una opción.", None
+        if not username or not password:
+            return "Error: Usuario y contraseña son obligatorios.", None
+
         token = self.user_service.login(username, password)
         if not token:
-            return "Error: credenciales inválidas.", None
+            return "Error: Credenciales inválidas.", None
         try:
             vote = self.poll_service.vote(
                 poll_id=poll_id,
@@ -29,25 +33,39 @@ class UIController:
             return f"Error al votar: {e}", None
 
     def get_active_polls(self):
-        polls = self.poll_service.list_polls(active_only=True)
-        return [{"id": p.id, "question": p.question, "options": p.options} for p in polls]
+        try:
+            polls = self.poll_service.list_polls(active_only=True)
+            return [{"id": p.id, "question": p.question, "options": p.options} for p in polls]
+        except Exception as e:
+            return []
 
     def chatbot_fn(self, username, message):
-        # Asumir usuario autenticado previamente en UI
-        response = self.chatbot_service.ask(username, message)
-        return response
+        if not username or not message:
+            return "Error: Usuario y mensaje son obligatorios."
+        try:
+            response = self.chatbot_service.ask(username, message)
+            return response
+        except Exception as e:
+            return f"Error en chatbot: {e}"
 
     def list_tokens_fn(self, username, password):
+        if not username or not password:
+            return []
         token = self.user_service.login(username, password)
         if not token:
             return []
-        tokens = self.nft_service.list_tokens(username)
-        return [{"token_id": t.token_id, "poll_id": t.poll_id, "option": t.option, "issued_at": str(t.issued_at)} for t in tokens]
+        try:
+            tokens = self.nft_service.list_tokens(username)
+            return [{"token_id": t.token_id, "poll_id": t.poll_id, "option": t.option, "issued_at": str(t.issued_at)} for t in tokens]
+        except Exception as e:
+            return []
 
     def transfer_fn(self, token_id, current_owner, password, new_owner):
+        if not token_id or not current_owner or not password or not new_owner:
+            return "Error: Todos los campos son obligatorios."
         token = self.user_service.login(current_owner, password)
         if not token:
-            return "Error: credenciales inválidas."
+            return "Error: Credenciales inválidas."
         try:
             self.nft_service.transfer_token(token_id=token_id, current_owner=current_owner, new_owner=new_owner)
             return "Transferencia completada."
@@ -70,7 +88,18 @@ class UIController:
                 polls_choices = [f"{p['id']} - {p['question']}" for p in data]
                 return gr.update(choices=polls_choices)
 
-            polls.change(lambda _: update_polls(), inputs=[polls], outputs=[polls])
+            def update_options(poll_selection):
+                if not poll_selection:
+                    return gr.update(choices=[])
+                poll_id = poll_selection.split(' - ')[0]
+                data = self.get_active_polls()
+                selected_poll = next((p for p in data if str(p['id']) == poll_id), None)
+                if selected_poll:
+                    return gr.update(choices=selected_poll['options'])
+                return gr.update(choices=[])
+
+            polls.change(update_options, inputs=[polls], outputs=[options])
+            polls.change(lambda _: update_polls(), inputs=[], outputs=[polls])
             vote_btn.click(
                 fn=lambda poll_selection, opts, u, p: self.vote_fn(poll_selection.split(' - ')[0], opts, u, p),
                 inputs=[polls, options, username, password],
