@@ -7,8 +7,26 @@ import os
 # Agregar el directorio raíz del proyecto a sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from transformers import pipeline
+
+class ChatbotService:
+    def __init__(self):
+        self.chatbot = pipeline("conversational", model="microsoft/DialoGPT-medium")
+
+    def responder(self, usuario, mensaje):
+        # Simular una conversación sin usar la clase Conversation
+        respuesta = self.chatbot(mensaje)
+        return respuesta[0]["generated_text"]
+    
 from src.controllers.cli_controller import CLIController
-from src.ui.gradio_app import GradioApp
+try:
+    from src.ui.gradio_app import GradioApp
+except ModuleNotFoundError:
+    print("Error: No se pudo encontrar el módulo 'src.ui.gradio_app'. Verifique la estructura del proyecto.")
+    sys.exit(1)
+except ImportError as e:
+    print(f"Error de importación: {e}")
+    sys.exit(1)
 
 
 def main():
