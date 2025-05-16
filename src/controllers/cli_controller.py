@@ -49,8 +49,8 @@ class CLIController:
         parser_create = subparsers.add_parser("create_poll", help="Crear una nueva encuesta")
         parser_create.add_argument("question", help="Texto de la pregunta")
         parser_create.add_argument("options", nargs='+', help="Opciones disponibles (mínimo 2)")
-        parser_create.add_argument("duration", help="Duración en segundos (debe ser mayor a 0)")
-        parser_create.add_argument("type", choices=self.POLL_TYPES, default='simple', help="Tipo de encuesta")
+        parser_create.add_argument("duration", type=int, help="Duración en segundos (debe ser mayor a 0)")
+        parser_create.add_argument("--type", choices=self.POLL_TYPES, default='simple', help="Tipo de encuesta (por defecto: simple)")
         parser_create.set_defaults(func=self.create_poll)
 
         parser_list = subparsers.add_parser("list_polls", help="Listar encuestas (activas y cerradas)")
@@ -130,6 +130,10 @@ class CLIController:
         self._print_results(results)
 
     def vote(self, args):
+        if not self.user_service.current_user:
+            print("Error: Debes iniciar sesión primero.")
+            return
+
         try:
             vote = self.poll_service.vote(
                 poll_id=args.poll_id,
@@ -141,10 +145,18 @@ class CLIController:
             print(f"Error al registrar el voto: {e}")
 
     def list_tokens(self, args):
+        if not self.user_service.current_user:
+            print("Error: Debes iniciar sesión primero.")
+            return
+
         tokens = self.nft_service.list_tokens(self.user_service.current_user)
         self._print_tokens(tokens)
 
     def transfer_token(self, args):
+        if not self.user_service.current_user:
+            print("Error: Debes iniciar sesión primero.")
+            return
+
         try:
             self.nft_service.transfer_token(
                 token_id=args.token_id,
